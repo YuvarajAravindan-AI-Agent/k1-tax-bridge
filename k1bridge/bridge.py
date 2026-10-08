@@ -200,7 +200,7 @@ def g4_preflight(k1: dict, facts: dict) -> dict:
     reasons = []
     if (k1.get("box5_interest", 0) or k1.get("box6a_ordinary_dividends", 0)) and not facts.get("schedule_b_part_iii"):
         reasons.append("interest/dividends present: Schedule B Part III answers (foreign accounts, "
-                       "foreign trust) are required; OpenTax drops Schedule B without them")
+                       "foreign trust) are required; the engine drops Schedule B without them")
     if not (facts.get("filer") or {}).get("filing_status"):
         reasons.append("filer.filing_status missing")
     if reasons:
