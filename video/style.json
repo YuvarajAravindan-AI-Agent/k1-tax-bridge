@@ -1,0 +1,19 @@
+{
+  "id": "ledger-paper-audit",
+  "video": "K-1 governed tax bridge demo (2026-10-08)",
+  "description": "Square 1:1. Cream ruled ledger paper with faint fibre noise; dark ink text, green ink for pass, red ink for blocked/strike-through. Archivo Black headlines and big numbers, Courier Prime typewriter body. Live asciinema shell recordings shown as panels pinned on the ledger page. Pages slide up between scenes; slow vertical drift down the page. Captions typed onto a paper tape strip at the top. Progress = row of gate checkboxes along the bottom margin. Opens on a two-number contrast hook; ends on a signed audit footer with the self-intro. Voice: Gemini TTS Orus.",
+  "fingerprint": {
+    "aspect": ["square-1x1"],
+    "palette_family": ["ledger-cream-paper", "ledger-green-ink", "audit-red-ink"],
+    "background": ["ruled-ledger-paper", "paper-fibre-noise"],
+    "typography": ["courier-prime", "archivo-black"],
+    "camera_motion": ["vertical-page-drift"],
+    "transition": ["page-slide-up"],
+    "caption_style": ["typewriter-tape-top"],
+    "progress_indicator": ["gate-checkbox-row"],
+    "intro_device": ["two-number-contrast-hook"],
+    "outro_device": ["signed-audit-footer"],
+    "narration_voice": ["tts-orus"],
+    "signature_motif": ["rubber-stamp-verdict", "red-ink-strike-through", "shell-panel-on-ledger"]
+  }
+}

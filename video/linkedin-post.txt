@@ -1,0 +1,27 @@
+Same K-1. Same open-source tax engine. One pipeline reported $1.6M of income. The K-1 supports $3.02M.
+
+Open infrastructure for tax is finally arriving: an open data standard that turns partnership K-1s into structured data, and an open-source engine that computes the Form 1040. Both are built for AI agents.
+
+But I found one behaviour that matters. When a form lacks evidence, the engine drops that form, logs a warning, and still returns a confident number. A plain wrapper never reads that warning.
+
+So I built a governed bridge between the two, with seven fail-closed gates:
+1. The K-1 document passes the standard's validator
+2. Preparer IDs match the digits visible on the masked K-1
+3. Every K-1 value gets an outcome: sent, attested, or excluded by a named reviewer with a reason
+4. Required answers are checked before the engine runs
+5. The engine accepted every entry
+6. No form was silently dropped
+7. Each 1040 line reconciles back to the K-1
+
+Three live runs on my server:
+→ Plain wrapper: $1,598,400 reported. Schedule B dropped (−$687,000), box 11S never sent (−$738,700).
+→ Governed, with the Schedule B answers withheld: BLOCKED at gate 4. No result, so no wrong number.
+→ Governed, with full preparer facts: $3,024,900. 5 of 5 lines match the K-1 to the dollar; all 35 values accounted for. The verdict reads "computed with exclusions", not "complete".
+
+It runs self-hosted on a 4-core Contabo VPS: the engine compiled from source into one binary, and 35 tests pinning every gate.
+
+Synthetic data only. This is a governance demo, not a filing tool.
+
+Open engines make agentic tax possible. Governance makes it trustworthy.
+
+#AIGovernance #AgenticAI #TaxTechnology #RegTech #ResponsibleAI
