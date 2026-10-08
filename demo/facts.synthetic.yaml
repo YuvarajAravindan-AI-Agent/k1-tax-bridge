@@ -1,0 +1,98 @@
+# Preparer facts for the otd-spec SYNTHETIC K-1 (Copperleaf Real Estate Fund V).
+# All identifiers and attestations below are fabricated test values for a demo.
+# Nothing here describes a real taxpayer.
+attested_by: "Demo Preparer (synthetic data)"
+attested_at: 2026-10-08
+
+filer:
+  filing_status: single
+
+# The K-1's visible digits are **-**65189 and XX-XXX8572; the bridge checks these match.
+identity:
+  partnership_ein: "99-0065189"
+  recipient_tin: "99-0008572"
+
+# The synthetic K-1 is issued to a partnership. A Form 1040 needs an individual.
+recipient_override:
+  reason: "Demo only: synthetic K-1 recipient treated as an individual filer to exercise the 1040 engine."
+
+schedule_b_part_iii:
+  foreign_accounts_question: false
+  foreign_trust_question: false
+
+attestations:
+  box7_royalty_reporting:
+    tsj: T
+    property_description: "Mineral royalty interest held through partnership (synthetic)"
+    portfolio_nonpassive: true
+    form_1099_payments_made: false
+  box11_code_s_nonportfolio_capital:
+    short_term_gain_loss: 0
+    long_term_gain_loss: 738700
+    nonpassive_reviewed: true
+    no_special_rate_components_confirmed: true
+    statement_reference: "synthetic-k1.pdf / Box 11 Code S statement"
+    recipient_tin: "990008572"
+    character_workpaper_reference: "WP-11S-001 (synthetic)"
+
+review_decisions:
+  other_income.portfolio:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "11A portfolio income detail statement not yet reconciled; hold for preparer."
+  other_income.section_1256_contracts:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Section 1256 contracts require Form 6781 (60/40 split); outside engine K-1 scope."
+  other_deductions.cash_contributions_60:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Charitable contributions must be entered as categorized Schedule A sources."
+  other_deductions.cash_contributions_30:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Charitable contributions must be entered as categorized Schedule A sources."
+  other_deductions.portfolio_deductions:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Miscellaneous itemized deductions suspended for individuals through 2025 (IRC 67(g))."
+  other_deductions.pensions_iras:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Partner-level retirement deduction needs plan documents; not provided."
+  credits.zero_emission_nuclear:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Credit not supported by the engine; route to manual Form 7213 review."
+  nondeductible.expenses:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Basis-only item; engine's combined box 18 field would misstate basis."
+  other_information.investment_income:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Form 4952 investment income computed separately by preparer."
+  other_information.investment_expenses:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "20B needs issuer crosswalk to 13I; not supplied."
+  section_179_deduction:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Section 179 needs partnership asset detail and partner-level business income limit; requested from issuer."
+  other_deductions.investment_interest:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Investment interest goes through Form 4952 with AMT refigure; preparer to compute."
+  amt.depreciation_adjustment:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "AMT adjustments need line-level Form 6251 modeling; preparer to compute."
+  amt.adjusted_gain_loss:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "AMT adjustments need line-level Form 6251 modeling; preparer to compute."
+  foreign_taxes_paid_accrued:
+    decision: exclude
+    reviewer: "Demo Reviewer"
+    reason: "Schedule K-3 not yet received; foreign tax credit deferred until K-3 arrives."
