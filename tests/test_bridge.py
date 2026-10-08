@@ -171,6 +171,20 @@ def test_relative_otd_path_validates(tmp_path):
 
 
 @needs_engine
+def test_relative_engine_path_works(tmp_path):
+    rel = os.path.relpath(ENGINE, ROOT)
+    code, audit = run_cli(tmp_path, OTD, FACTS, "--engine", rel)
+    assert code == 3 and audit["verdict"] == "COMPUTED_WITH_EXCLUSIONS"
+
+
+def test_missing_engine_is_a_clean_error(tmp_path):
+    proc = subprocess.run([sys.executable, "-m", "k1bridge.bridge", "--otd", str(OTD), "--facts", str(FACTS),
+                           "--out", str(tmp_path / "out"), "--engine", "./no-such-opentax"],
+                          capture_output=True, text=True, cwd=ROOT)
+    assert proc.returncode == 1 and "engine not found" in proc.stderr and "Traceback" not in proc.stderr
+
+
+@needs_engine
 def test_naive_run_reports_short_income(tmp_path):
     code, audit = run_cli(tmp_path, OTD, FACTS, "--naive")
     assert code == 0 and audit["summary"]["line9_total_income"] < 3024900

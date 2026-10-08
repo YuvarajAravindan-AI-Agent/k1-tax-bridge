@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -210,7 +211,8 @@ def g4_preflight(k1: dict, facts: dict) -> dict:
 # ---------------------------------------------------------------- engine
 class Engine:
     def __init__(self, binary: Path, state_dir: Path):
-        self.binary, self.state_dir = binary, state_dir
+        # Resolve now: the engine runs with cwd=state_dir, where relative paths break.
+        self.binary, self.state_dir = binary.resolve(), state_dir
         state_dir.mkdir(parents=True, exist_ok=True)
         self.calls: list[dict] = []
 
@@ -419,7 +421,17 @@ def main(argv=None) -> int:
     p.add_argument("--otd-validator", default=os.environ.get("OTD_VALIDATOR"))
     p.add_argument("--python", default=sys.executable, help="python used to run the OTD validator")
     p.add_argument("--naive", action="store_true", help="behave like an ungoverned wrapper (demo contrast)")
-    return run(p.parse_args(argv))
+    args = p.parse_args(argv)
+    engine = Path(args.engine) if os.sep in args.engine else Path(shutil.which(args.engine) or args.engine)
+    if not (engine.is_file() and os.access(engine, os.X_OK)):
+        print(f"error: OpenTax engine not found or not executable: {args.engine}", file=sys.stderr)
+        return 1
+    args.engine = str(engine.resolve())
+    for name in ("otd", "facts"):
+        if getattr(args, name) and not Path(getattr(args, name)).is_file():
+            print(f"error: --{name} file not found: {getattr(args, name)}", file=sys.stderr)
+            return 1
+    return run(args)
 
 
 if __name__ == "__main__":
