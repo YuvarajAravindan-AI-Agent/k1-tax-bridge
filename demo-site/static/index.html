@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K-1 Bridge Live Demo</title>
+<meta name="description" content="Run a governed K-1 → Form 1040 bridge live: seven fail-closed gates in front of an open-source tax engine. Synthetic data, no signup.">
+<meta property="og:title" content="K-1 → Form 1040, governed — live demo">
+<meta property="og:description" content="Same K-1, same open-source engine: a plain wrapper reports $1.6M of income, the K-1 supports $3.02M. Run it yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f6f1e2; --rule: #cdd6de; --margin: #d67870; --ink: #22262e; --muted: #6f6b62;
+    --green: #1c6e48; --red: #ba2a2a; --tape: #fcfaf3; --shell: #1e2320; --shell-fg: #e8e4d6; --card: #fbf8ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); font: 17px/1.5 "Courier Prime", ui-monospace, monospace;
+    background-color: var(--paper);
+    background-image: linear-gradient(var(--rule) 1px, transparent 1px);
+    background-size: 100% 40px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 64px; position: relative; }
+  .wrap::before { content: ""; position: fixed; top: 0; bottom: 0; left: max(10px, calc(50% - 520px));
+    width: 6px; border-left: 2px solid var(--margin); border-right: 1px solid var(--margin); opacity: .7; pointer-events: none; }
+  h1, h2, .stamp, .num { font-family: "Archivo Black", system-ui, sans-serif; font-weight: 400; letter-spacing: .01em; }
+  h1 { font-size: clamp(28px, 5vw, 46px); line-height: 1.1; margin: 8px 0 12px; }
+  h2 { font-size: 22px; margin: 36px 0 12px; }
+  .tape { background: var(--tape); padding: 12px 18px; box-shadow: 3px 4px 10px rgba(0,0,0,.12); margin: 0 0 18px; }
+  .lede { font-size: 18px; max-width: 760px; }
+  .hook { display: flex; gap: 24px; flex-wrap: wrap; margin: 18px 0 6px; }
+  .hook div { flex: 1 1 260px; }
+  .hook small { color: var(--muted); display: block; }
+  .num { font-size: clamp(30px, 6vw, 48px); line-height: 1.1; }
+  .num.red { color: var(--red); text-decoration: line-through 5px var(--red); }
+  .num.green { color: var(--green); }
+  video { width: 100%; max-width: 560px; display: block; border: 1px solid var(--ink); background: #000; }
+  .scenarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .sc { background: var(--card); border: 2px solid var(--ink); border-radius: 8px; padding: 12px 14px; cursor: pointer; text-align: left;
+        font: inherit; color: inherit; position: relative; }
+  .sc:hover { background: #fff; }
+  .sc[aria-pressed="true"] { outline: 4px solid var(--green); outline-offset: 0; }
+  .sc b { display: block; font-family: "Archivo Black", sans-serif; font-weight: 400; font-size: 16px; margin-bottom: 4px; }
+  .sc span { font-size: 14px; color: var(--muted); }
+  .sc .tag { display: block; font-size: 12px; font-weight: 700; color: var(--red); letter-spacing: .04em; margin-bottom: 2px; }
+  .run { margin: 16px 0 0; font: 22px "Archivo Black", sans-serif; background: var(--ink); color: var(--paper); border: 0;
+         padding: 14px 28px; border-radius: 8px; cursor: pointer; }
+  .run:disabled { opacity: .55; cursor: progress; }
+  #result { margin-top: 28px; }
+  .shell { background: var(--shell); color: var(--shell-fg); border-radius: 8px; padding: 16px 18px; overflow-x: auto;
+           font-size: 15px; white-space: pre-wrap; word-break: break-word; }
+  .verdict { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin: 18px 0; }
+  .stamp { display: inline-block; font-size: clamp(22px, 4vw, 34px); padding: 8px 18px; border: 5px double currentColor;
+           border-radius: 8px; transform: rotate(-5deg); }
+  .stamp.red { color: var(--red); } .stamp.green { color: var(--green); } .stamp.amber { color: #8a5a00; }
+  .gates { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; padding: 0; list-style: none; }
+  .gates li { border: 2px solid var(--ink); border-radius: 6px; padding: 4px 10px; font-size: 14px; background: var(--card); }
+  .gates li.pass { border-color: var(--green); color: var(--green); }
+  .gates li.blocked { border-color: var(--red); color: #fff; background: var(--red); }
+  .gates li.notrun { opacity: .45; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card); }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  td.r, th.r { text-align: right; white-space: nowrap; }
+  .tbl { overflow-x: auto; }
+  .ok { color: var(--green); font-weight: 700; } .bad { color: var(--red); font-weight: 700; }
+  .reasons li { margin: 6px 0; }
+  details summary { cursor: pointer; font-weight: 700; margin: 8px 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  footer { margin-top: 48px; font-size: 14px; color: var(--muted); }
+  footer a, a { color: var(--ink); }
+  .err { color: var(--red); font-weight: 700; }
+  @media (max-width: 560px) { body { font-size: 16px; } .wrap::before { display: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="tape">Live demo · synthetic data only · not a filing tool · no signup</p>
+  <h1>K-1 → Form 1040, governed</h1>
+  <p class="lede">An open data standard turns partnership K-1s into structured data, and an open-source engine computes the 1040.
+    But when a form lacks evidence, the engine drops it, logs a warning, and still returns a number.
+    This bridge puts seven fail-closed gates in between. Pick a scenario below and run it: each click is a real run on our server.</p>
+  <div class="hook">
+    <div><small>plain wrapper reports</small><div class="num red">$1,598,400</div></div>
+    <div><small>the K-1 supports</small><div class="num green">$3,024,900</div></div>
+  </div>
+
+  <h2>1 · Pick a scenario</h2>
+  <div class="scenarios" id="scenarios" role="group" aria-label="Scenarios"></div>
+  <button class="run" id="run" disabled>Run it live</button>
+  <p class="muted" id="status" aria-live="polite"></p>
+
+  <section id="result" aria-live="polite"></section>
+
+  <h2>2 · Watch the walkthrough (2 min)</h2>
+  <video controls preload="metadata" playsinline src="k1-bridge-demo.mp4"></video>
+
+  <h2>What the seven gates check</h2>
+  <ol>
+    <li>The K-1 document passes the standard's own validator</li>
+    <li>Preparer-supplied IDs match the digits visible on the masked K-1</li>
+    <li>Every K-1 value gets an outcome: sent, attested, or excluded by a named reviewer with a reason</li>
+    <li>Answers the engine needs are present before it runs</li>
+    <li>The engine accepted every entry</li>
+    <li>No form was silently dropped during the calculation</li>
+    <li>1040 lines 2b, 3a, 3b, 7 and 8 reconcile back to the K-1 (±$1)</li>
+  </ol>
+
+  <footer>
+    <p><b>Synthetic data.</b> The K-1 is the open standard's synthetic example; all IDs, attestations and reviewer decisions are invented.
+      Nothing here is tax advice, and nothing is filed.</p>
+    <p><b>Source and licences.</b> Tax engine: Filed OpenTax, AGPL v3, run unmodified from
+      <a href="https://github.com/filedcom/opentax/tree/0c6ae76a32d12373956d4f8e47564811185c60d7">commit 0c6ae76</a>.
+      K-1 standard and validator: Open Tax Document, CC BY 4.0,
+      <a href="https://github.com/opentaxdocument/otd-spec/tree/be6452ae46cfdb1c510ff728415b78252e1ea4f4">commit be6452a</a>.
+      The bridge runs the engine as a separate program.</p>
+    <p>Built by <a href="https://ai-agentic-enterprises.com/">AI Agentic Enterprises</a> · governed AI agents for regulated industries ·
+      <a href="https://www.linkedin.com/feed/update/urn:li:activity:7513925989811298304/">LinkedIn post</a></p>
+  </footer>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const money = (v) => (typeof v === "number") ? (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-US", {maximumFractionDigits: 0}) : (v ?? "");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let chosen = "governed";
+
+async function loadScenarios() {
+  const res = await fetch("api/scenarios");
+  const list = await res.json();
+  $("#scenarios").innerHTML = list.map((s) => `
+    <button class="sc" data-id="${s.id}" aria-pressed="${s.id === chosen}">
+      ${s.gate ? `<span class="tag">trips ${s.gate}</span>` : ""}
+      <b>${esc(s.title)}</b><span>${esc(s.what)}</span>
+    </button>`).join("");
+  document.querySelectorAll(".sc").forEach((b) => b.addEventListener("click", () => {
+    chosen = b.dataset.id;
+    document.querySelectorAll(".sc").forEach((x) => x.setAttribute("aria-pressed", x.dataset.id === chosen));
+  }));
+  $("#run").disabled = false;
+}
+
+function render(r) {
+  const color = r.verdict === "BLOCKED" ? "red" : r.verdict === "REPORTED" ? "red" : r.verdict === "COMPLETE" ? "green" : "amber";
+  const label = { REPORTED: "REPORTED ANYWAY", BLOCKED: `BLOCKED · ${r.blocked?.gate ?? ""}`,
+                  COMPUTED_WITH_EXCLUSIONS: "RECONCILED · WITH EXCLUSIONS", COMPLETE: "COMPLETE" }[r.verdict] || r.verdict;
+  const s = r.summary || {};
+  let h = `<h2>Result: ${esc(r.title)}</h2>
+    <div class="verdict"><span class="stamp ${color}">${esc(label)}</span>
+      <span class="muted">ran in ${r.seconds}s · ${esc(r.run_at)} · exit ${r.exit_code}</span></div>`;
+  if (r.summary) {
+    h += `<div class="hook"><div><small>total income</small><div class="num">${money(s.line9_total_income)}</div></div>
+      <div><small>total tax</small><div class="num">${money(s.line24_total_tax)}</div></div></div>`;
+  }
+  if (r.mode === "naive") {
+    const fails = r.engine_warnings.filter((w) => w.includes("EXECUTOR_NODE_FAILURE"));
+    h += `<p class="bad">${r.engine_warnings.length} engine warning(s) the wrapper never read${fails.length ? `, including ${fails.length} dropped form(s)` : ""}:</p>
+      <div class="shell">${r.engine_warnings.map(esc).join("\n")}</div>
+      <p>The K-1 supports $3,024,900 of income. This run is short by ${money(3024900 - (s.line9_total_income || 0))}.</p>`;
+  }
+  if (r.gates.length) {
+    h += `<ul class="gates">${r.gates.map((g) => `<li class="${g.status.replace(" ", "")}" title="${esc(g.name)}">${g.gate} ${g.status === "pass" ? "✓" : g.status === "blocked" ? "✗" : "–"} ${esc(g.name)}</li>`).join("")}</ul>`;
+  }
+  if (r.blocked) {
+    h += `<p class="bad">Stopped at ${esc(r.blocked.gate)}. No result is reported, so no wrong number exists.</p>
+      <ul class="reasons">${r.blocked.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+  if (r.reconciliation?.length) {
+    h += `<h2>Reconciliation, K-1 → 1040</h2><div class="tbl"><table><tr><th>1040 line</th><th class="r">from K-1</th><th class="r">engine</th><th>status</th></tr>
+      ${r.reconciliation.map((x) => `<tr><td>${esc(x.line)}</td><td class="r">${money(x.expected)}</td><td class="r">${money(x.actual)}</td>
+      <td class="${x.status === "ok" ? "ok" : "bad"}">${esc(x.status)}</td></tr>`).join("")}</table></div>`;
+  }
+  if (r.ledger?.length) {
+    const counts = r.ledger.reduce((a, e) => (a[e.disposition] = (a[e.disposition] || 0) + 1, a), {});
+    h += `<details ${r.mode === "naive" ? "open" : ""}><summary>Every K-1 value and what happened to it (${r.ledger.length}): ${Object.entries(counts).map(([k, v]) => `${v} ${esc(k)}`).join(" · ")}</summary>
+      <div class="tbl"><table><tr><th>box</th><th>K-1 item</th><th class="r">value</th><th>outcome</th><th>detail</th></tr>
+      ${r.ledger.map((e) => `<tr><td>${esc(e.box)}</td><td>${esc(e.semantic_id)}</td><td class="r">${money(e.value)}</td>
+        <td class="${/BLOCKED|dropped/.test(e.disposition) ? "bad" : ""}">${esc(e.disposition)}</td>
+        <td>${esc(e.reviewer ? e.reviewer + ": " + e.reason : (e.target || e.reason || e.note || ""))}</td></tr>`).join("")}
+      </table></div></details>`;
+  }
+  if (r.mode === "governed" && r.engine_warnings.length) {
+    h += `<p class="muted">Engine warnings (none were form failures): ${r.engine_warnings.map(esc).join(" · ")}</p>`;
+  }
+  h += `<p class="muted">Engine ${esc(r.engine.version)} @ ${esc(r.engine.commit)} (sha256 ${esc(r.engine.sha256)}…) · K-1 ${esc(r.otd.taxonomy)} (sha256 ${esc(r.otd.sha256)}…)</p>`;
+  $("#result").innerHTML = h;
+  $("#result").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+$("#run").addEventListener("click", async () => {
+  $("#run").disabled = true;
+  $("#status").textContent = "Running the bridge and the engine on the server…";
+  try {
+    const res = await fetch(`api/run?scenario=${encodeURIComponent(chosen)}`, {method: "POST"});
+    const body = await res.json();
+    if (!res.ok) { $("#status").innerHTML = `<span class="err">${esc(body.error || res.status)}</span>`; return; }
+    $("#status").textContent = "";
+    render(body);
+  } catch (e) {
+    $("#status").innerHTML = `<span class="err">Could not reach the demo server. Please try again.</span>`;
+  } finally {
+    $("#run").disabled = false;
+  }
+});
+loadScenarios().catch(() => { $("#status").innerHTML = `<span class="err">Could not load scenarios.</span>`; });
+</script>
+</body>
+</html>
