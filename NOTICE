@@ -1,0 +1,13 @@
+k1-tax-bridge
+Copyright 2026 Yuvaraj Aravindan
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party material
+--------------------
+- tests/fixtures/synthetic-k1.otd.yaml is generated from the synthetic example in
+  otd-spec (https://github.com/opentaxdocument/otd-spec), licensed CC BY 4.0.
+- OpenTax (https://github.com/filedcom/opentax) is licensed AGPL v3 and is NOT
+  distributed with this repository. It is invoked as a separate process via
+  OPENTAX_BIN. Commercial hosted use of that engine requires Filed's commercial
+  licence; this notice does not grant any rights to it.

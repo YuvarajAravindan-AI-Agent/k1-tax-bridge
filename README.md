@@ -53,3 +53,8 @@ attestations for evidence-gated boxes, and reviewer decisions. Everything in it 
 - Not a filing tool. OpenTax is AGPL v3 and is invoked here as a separate process;
   commercial hosted use of the engine needs Filed's commercial licence.
 - `tests/fixtures/synthetic-k1.otd.yaml` is generated from otd-spec's synthetic example (CC BY 4.0).
+
+## License
+
+Apache-2.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The OpenTax engine it drives is a
+separate AGPL v3 project and is not included. Security reports: see [SECURITY.md](SECURITY.md).
