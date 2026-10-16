@@ -208,3 +208,44 @@ def test_tampered_otd_blocks_at_validator(tmp_path):
     p.write_text(text)
     code, audit = run_cli(tmp_path, p)
     assert code == 2 and audit["blocked"]["gate"] == "G1"
+
+
+# ------------------------------------------- BLOCKED leaves no figures (fake engine)
+FAKE_ENGINE = '''#!/usr/bin/env python3
+import json, os, sys
+a = sys.argv[1:]
+if a[:2] == ["return", "create"]:
+    print(json.dumps({"returnId": "r1"}))
+elif a[:2] == ["return", "get"]:
+    print(open(os.environ["FAKE_RESULT"]).read())
+elif a[:1] == ["version"]:
+    print("fake-engine")
+'''
+FAKE_RESULTS = {
+    "G6": {"summary": {"line9_total_income": 1598400}, "lines": {},
+           "warnings": ["[EXECUTOR_NODE_FAILURE] schedule_b: compute() threw for node schedule_b: missing answer"]},
+    "G7": {"summary": {"line9_total_income": 1598400}, "lines": {}, "warnings": []},
+}
+
+
+@pytest.mark.parametrize("gate", ["G6", "G7"])
+def test_blocked_after_engine_run_leaves_no_figures(tmp_path, monkeypatch, gate):
+    engine = tmp_path / "opentax"
+    engine.write_text(FAKE_ENGINE)
+    engine.chmod(0o755)
+    validator = tmp_path / "a/b/c/validate_otd.py"
+    validator.parent.mkdir(parents=True)
+    validator.write_text("import sys; sys.exit(0)\n")
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps(FAKE_RESULTS[gate]))
+    monkeypatch.setenv("FAKE_RESULT", str(result))
+    out = tmp_path / "out"
+    proc = subprocess.run([sys.executable, "-m", "k1bridge.bridge", "--otd", str(OTD), "--facts", str(FACTS),
+                           "--out", str(out), "--engine", str(engine), "--otd-validator", str(validator)],
+                          capture_output=True, text=True, cwd=ROOT)
+    audit = json.loads((out / "audit.json").read_text())
+    assert proc.returncode == 2 and audit["verdict"] == "BLOCKED" and audit["blocked"]["gate"] == gate
+    assert "summary" not in audit
+    assert not (out / "engine_return.json").exists()
+    for text in (proc.stdout, (out / "audit.json").read_text(), (out / "audit.md").read_text()):
+        assert "1598400" not in text and "1,598,400" not in text

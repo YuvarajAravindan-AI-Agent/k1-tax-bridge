@@ -353,9 +353,11 @@ def run(args) -> int:
     audit["engine_calls"] = engine.calls
     audit["ledger"] = ledger
     if result is not None:
-        audit["summary"] = result.get("summary")
         audit["engine_warnings_raw"] = result.get("warnings", [])
-        (out / "engine_return.json").write_text(json.dumps(result, indent=2))
+        if audit["verdict"] != "BLOCKED":
+            # A blocked run must leave no computed figures behind, on screen or on disk.
+            audit["summary"] = result.get("summary")
+            (out / "engine_return.json").write_text(json.dumps(result, indent=2))
     (out / "audit.json").write_text(json.dumps(audit, indent=2, default=str))
     (out / "audit.md").write_text(render_md(audit))
     print(render_console(audit))

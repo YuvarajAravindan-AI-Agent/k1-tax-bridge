@@ -28,6 +28,8 @@ Verdicts: `COMPLETE` (exit 0), `COMPUTED_WITH_EXCLUSIONS` (exit 3: computed, but
 exclusions mean it is **not** a complete return), `BLOCKED` (exit 2). `--naive` mimics an
 ungoverned wrapper for comparison and always reports.
 
+A `BLOCKED` run writes no computed figures: no `summary` in the audit and no `engine_return.json`.
+
 Each run writes `audit.json`, `audit.md` (gates, reconciliation, a disposition row per
 K-1 value, input/engine hashes) and `engine_return.json`.
 
