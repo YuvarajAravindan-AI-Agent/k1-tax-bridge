@@ -3,7 +3,8 @@
 Gates, in order (any failure blocks the run and nothing is reported as a result):
   G1 OTD document passes the reference validator (otd-spec validate_otd.py)
   G2 preparer identity matches the visible digits of the masked IDs on the K-1
-  G3 every non-empty OTD value has a disposition (direct/attested/review/info)
+  G3 every non-empty OTD value has a disposition (direct/attested/review/info);
+     every attestation names where its proof came from (provenance) or the run blocks
   G4 preflight: inputs the engine is known to need are present
   G5 the engine accepts every form entry
   G6 no engine node failed during compute (OpenTax drops such nodes and only warns)
@@ -27,7 +28,7 @@ import yaml
 
 from .mapping import IDENTITY_PREFIXES, NODE_SOURCES, RECONCILE, RULES
 
-BRIDGE_VERSION = "0.2.0"
+BRIDGE_VERSION = "0.3.0"
 TOLERANCE = 1.0  # dollars; the engine rounds to whole dollars on several lines
 
 
@@ -101,6 +102,29 @@ def g2_identity(by_id: dict, facts: dict) -> dict:
             "override": facts.get("recipient_override")}
 
 
+PROVENANCE_REQUIRED = ("source", "retrieved_by", "retrieved_at")
+RETRIEVER_PREFIXES = ("preparer:", "tool:")
+
+
+def provenance_problems(prov) -> list[str]:
+    """What is wrong with an attestation's provenance block (empty list = acceptable)."""
+    if not isinstance(prov, dict):
+        return ["no provenance block"]
+    problems = [f"provenance.{k} missing" for k in PROVENANCE_REQUIRED if is_empty(prov.get(k))]
+    by = str(prov.get("retrieved_by") or "")
+    if by and not by.startswith(RETRIEVER_PREFIXES):
+        problems.append("provenance.retrieved_by must start with 'preparer:' or 'tool:'")
+    if by.startswith("tool:") and not re.fullmatch(r"[0-9a-fA-F]{64}", str(prov.get("source_sha256") or "")):
+        problems.append("provenance.source_sha256 (64 hex) required when a tool retrieved the proof")
+    return problems
+
+
+def split_provenance(raw: dict) -> tuple[dict, dict | None]:
+    """Separate the engine-bound evidence from its provenance; provenance never reaches the engine."""
+    evidence = {k: v for k, v in raw.items() if k != "provenance"}
+    return evidence, raw.get("provenance")
+
+
 def g3_dispositions(nodes: list[dict], facts: dict, naive: bool):
     """Return (k1 input, ledger). Raises Blocked on any unresolved item."""
     k1: dict = {}
@@ -143,7 +167,8 @@ def g3_dispositions(nodes: list[dict], facts: dict, naive: bool):
             entry.update(disposition="sent", target=rule.target, sent=amount,
                          transform="sign flipped" if rule.sign < 0 else ("summed" if rule.sums_into else ""))
         elif rule.kind == "attested":
-            evidence = attest.get(rule.attest_key)
+            raw = attest.get(rule.attest_key) or {}
+            evidence, prov = split_provenance(raw) if isinstance(raw, dict) else ({}, None)
             if not evidence and reviewer_excluded(decisions.get(sid)):
                 d = decisions[sid]
                 entry.update(disposition="excluded-by-reviewer", reviewer=d["reviewer"], reason=d["reason"])
@@ -153,12 +178,17 @@ def g3_dispositions(nodes: list[dict], facts: dict, naive: bool):
                                f"'{rule.attest_key}': {rule.note}")
             else:
                 problem = apply_attestation(k1, rule, value, evidence)
+                prov_problems = provenance_problems(prov) if not naive else []
                 if problem:
                     entry.update(disposition="BLOCKED")
                     reasons.append(f"box {rule.box}: {problem}")
+                elif prov_problems:
+                    entry.update(disposition="BLOCKED")
+                    reasons.append(f"box {rule.box} attestation '{rule.attest_key}' has no acceptable proof source: "
+                                   + "; ".join(prov_problems))
                 else:
                     entry.update(disposition="sent+attested", target=rule.target or rule.attest_key,
-                                 attestation=rule.attest_key)
+                                 attestation=rule.attest_key, provenance=prov)
         elif rule.kind == "review":
             d = decisions.get(sid)
             if not reviewer_excluded(d):
@@ -344,6 +374,8 @@ def run(args) -> int:
             audit["gates"]["G6_no_node_failures"] = "no EXECUTOR_NODE_FAILURE"
             audit["reconciliation"] = g7_reconcile(result, k1)
             audit["gates"]["G7_reconciled"] = "all reconcilable lines match"
+            audit["provenance"] = [{"attestation": e["attestation"], "box": e["box"], **e["provenance"]}
+                                   for e in ledger if e.get("disposition") == "sent+attested"]
             excluded = [e for e in ledger if e.get("disposition") == "excluded-by-reviewer"]
             audit["verdict"] = "COMPUTED_WITH_EXCLUSIONS" if excluded else "COMPLETE"
     except Blocked as b:
@@ -399,11 +431,24 @@ def render_md(a: dict) -> str:
         md += ["## Reconciliation (K-1 → 1040)", "", "| Line | From K-1 | Engine | Status |", "|---|---:|---:|---|"]
         md += [f"| {r['line']} | {money(r['expected'])} | {money(r['actual'])} | {r['status']} |" for r in a["reconciliation"]] + [""]
     if a.get("ledger"):
+        counts: dict[str, int] = {}
+        for e in a["ledger"]:
+            if e["disposition"] not in ("identity", "empty"):
+                counts[e["disposition"]] = counts.get(e["disposition"], 0) + 1
+        md += ["## Summary", "", ", ".join(f"{n} {d}" for d, n in sorted(counts.items())), ""]
+    if a.get("provenance"):
+        md += ["## Evidence provenance", "", "| Box | Attestation | Source | Retrieved by | Retrieved at | Source SHA-256 |",
+               "|---|---|---|---|---|---|"]
+        md += [f"| {p['box']} | {p['attestation']} | {p['source']} | {p['retrieved_by']} | {p['retrieved_at']} | "
+               f"{(str(p.get('source_sha256'))[:16] + '…') if p.get('source_sha256') else ''} |" for p in a["provenance"]] + [""]
+    if a.get("ledger"):
         md += ["## Disposition of every K-1 value", "", "| Box | OTD id | Value | Disposition | Detail |", "|---|---|---:|---|---|"]
         for e in a["ledger"]:
             if e["disposition"] in ("identity", "empty"):
                 continue
             detail = e.get("target") or e.get("reason") or e.get("note") or ""
+            if e.get("provenance"):
+                detail = f"{detail} · proof: {e['provenance']['source']} ({e['provenance']['retrieved_by']})"
             if e.get("reviewer"):
                 detail = f"{e['reviewer']}: {detail}"
             md += [f"| {e['box']} | {e['semantic_id']} | {money(e['value'])} | {e['disposition']} | {detail} |"]

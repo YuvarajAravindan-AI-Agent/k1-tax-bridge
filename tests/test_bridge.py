@@ -249,3 +249,98 @@ def test_blocked_after_engine_run_leaves_no_figures(tmp_path, monkeypatch, gate)
     assert not (out / "engine_return.json").exists()
     for text in (proc.stdout, (out / "audit.json").read_text(), (out / "audit.md").read_text()):
         assert "1598400" not in text and "1,598,400" not in text
+
+
+# ------------------------------------------------- 0.3.0 evidence provenance
+def g3(doc, facts):
+    nodes, _ = nodes_and_ids(doc)
+    return bridge.g3_dispositions(nodes, facts, naive=False)
+
+
+@pytest.mark.parametrize("key", ["box7_royalty_reporting", "box11_code_s_nonportfolio_capital"])
+def test_attestation_without_provenance_blocks(doc, facts, key):
+    del facts["attestations"][key]["provenance"]
+    with pytest.raises(Blocked) as e:
+        g3(doc, facts)
+    assert e.value.gate == "G3" and key in e.value.reasons[0] and "no provenance block" in e.value.reasons[0]
+
+
+@pytest.mark.parametrize("field", ["source", "retrieved_by", "retrieved_at"])
+def test_provenance_requires_each_field(doc, facts, field):
+    del facts["attestations"]["box7_royalty_reporting"]["provenance"][field]
+    with pytest.raises(Blocked, match=f"provenance.{field} missing"):
+        g3(doc, facts)
+
+
+def test_retrieved_by_must_name_a_kind(doc, facts):
+    facts["attestations"]["box7_royalty_reporting"]["provenance"]["retrieved_by"] = "somebody"
+    with pytest.raises(Blocked, match="preparer:' or 'tool:"):
+        g3(doc, facts)
+
+
+@pytest.mark.parametrize("digest", [None, "", "abc123", "z" * 64])
+def test_tool_retrieved_proof_needs_a_real_hash(doc, facts, digest):
+    prov = facts["attestations"]["box11_code_s_nonportfolio_capital"]["provenance"]
+    assert prov["retrieved_by"].startswith("tool:")
+    if digest is None:
+        del prov["source_sha256"]
+    else:
+        prov["source_sha256"] = digest
+    with pytest.raises(Blocked, match="source_sha256"):
+        g3(doc, facts)
+
+
+def test_human_retrieved_proof_does_not_need_a_hash(doc, facts):
+    prov = facts["attestations"]["box7_royalty_reporting"]["provenance"]
+    assert prov["retrieved_by"].startswith("preparer:") and "source_sha256" not in prov
+    g3(doc, facts)
+
+
+def test_provenance_never_reaches_the_engine(doc, facts):
+    k1, _ = g3(doc, facts)
+    assert "provenance" not in json.dumps(k1)
+
+
+def test_ledger_carries_provenance_for_attested_values(doc, facts):
+    _, ledger = g3(doc, facts)
+    attested = [e for e in ledger if e["disposition"] == "sent+attested"]
+    assert {e["attestation"] for e in attested} == {"box7_royalty_reporting", "box11_code_s_nonportfolio_capital"}
+    assert all(e["provenance"]["source"] and e["provenance"]["retrieved_by"] for e in attested)
+
+
+def test_demo_hash_matches_the_file_it_names(facts):
+    prov = facts["attestations"]["box11_code_s_nonportfolio_capital"]["provenance"]
+    assert prov["source_sha256"] == bridge.sha256(OTD)
+
+
+def test_provenance_reaches_audit_json_and_report(tmp_path, monkeypatch, doc, facts):
+    """Full CLI run against a fake engine whose return reconciles to the K-1 values sent."""
+    k1, _ = g3(doc, facts)
+    from k1bridge.mapping import RECONCILE
+    lines = {}
+    for line, parts in RECONCILE.items():
+        total = sum(float(k1.get(p, 0) or 0) for p in parts)
+        if line == "line7_capital_gain":
+            s = k1["box11_code_s_nonportfolio_capital"]
+            total += s["short_term_gain_loss"] + s["long_term_gain_loss"]
+        lines[line] = total
+    engine = tmp_path / "opentax"
+    engine.write_text(FAKE_ENGINE)
+    engine.chmod(0o755)
+    validator = tmp_path / "a/b/c/validate_otd.py"
+    validator.parent.mkdir(parents=True)
+    validator.write_text("import sys; sys.exit(0)\n")
+    result = tmp_path / "result.json"
+    result.write_text(json.dumps({"summary": {"line9_total_income": 1}, "lines": lines, "warnings": []}))
+    monkeypatch.setenv("FAKE_RESULT", str(result))
+    out = tmp_path / "out"
+    proc = subprocess.run([sys.executable, "-m", "k1bridge.bridge", "--otd", str(OTD), "--facts", str(FACTS),
+                           "--out", str(out), "--engine", str(engine), "--otd-validator", str(validator)],
+                          capture_output=True, text=True, cwd=ROOT)
+    audit = json.loads((out / "audit.json").read_text())
+    assert proc.returncode == 3 and audit["verdict"] == "COMPUTED_WITH_EXCLUSIONS", proc.stdout
+    assert {p["attestation"] for p in audit["provenance"]} == {"box7_royalty_reporting",
+                                                               "box11_code_s_nonportfolio_capital"}
+    md = (out / "audit.md").read_text()
+    assert "## Evidence provenance" in md and "tool:demo-fetcher (synthetic)" in md and "## Summary" in md
+    assert audit["bridge_version"] == "0.3.0"

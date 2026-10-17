@@ -26,6 +26,10 @@ attestations:
     property_description: "Mineral royalty interest held through partnership (synthetic)"
     portfolio_nonpassive: true
     form_1099_payments_made: false
+    provenance:
+      source: "synthetic-k1.pdf / Box 7 royalty statement"
+      retrieved_by: "preparer:Demo Preparer"
+      retrieved_at: 2026-10-08
   box11_code_s_nonportfolio_capital:
     short_term_gain_loss: 0
     long_term_gain_loss: 738700
@@ -34,6 +38,11 @@ attestations:
     statement_reference: "synthetic-k1.pdf / Box 11 Code S statement"
     recipient_tin: "990008572"
     character_workpaper_reference: "WP-11S-001 (synthetic)"
+    provenance:
+      source: "tests/fixtures/synthetic-k1.otd.yaml (Box 11 Code S node)"
+      retrieved_by: "tool:demo-fetcher (synthetic)"
+      retrieved_at: 2026-10-08
+      source_sha256: "a3aba36fdbda5554d8d173401ba325bd872c56702f7bbd0f6c9cdca641fec827"
 
 review_decisions:
   other_income.portfolio:

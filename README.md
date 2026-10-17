@@ -18,7 +18,7 @@ Schedule B lacked a foreign-account answer, and the $738,700 box 11S gain is nev
 |---|---|
 | G1 | OTD document passes the otd-spec reference validator |
 | G2 | Preparer-supplied EIN/TIN match the digits visible on the masked K-1; non-individual recipients need an explicit override |
-| G3 | Every non-empty K-1 value has a disposition: `sent`, `sent+attested`, `excluded-by-reviewer` (named reviewer + reason), or `info`. Unknown items block. |
+| G3 | Every non-empty K-1 value has a disposition: `sent`, `sent+attested`, `excluded-by-reviewer` (named reviewer + reason), or `info`. Unknown items block. An attestation must also name where its proof came from (see below), or it blocks. |
 | G4 | Preflight: inputs the engine is known to need (Schedule B Part III answers, filing status) |
 | G5 | Engine accepts every form entry |
 | G6 | No `EXECUTOR_NODE_FAILURE` during compute, reported back in K-1 box terms |
@@ -32,6 +32,29 @@ A `BLOCKED` run writes no computed figures: no `summary` in the audit and no `en
 
 Each run writes `audit.json`, `audit.md` (gates, reconciliation, a disposition row per
 K-1 value, input/engine hashes) and `engine_return.json`.
+
+## Evidence provenance (0.3.0)
+
+Every attestation in the facts file carries a `provenance` block. The bridge blocks at G3 if it is
+missing or incomplete, never sends it to the engine, and records it in `audit.json` and `audit.md`.
+
+```yaml
+attestations:
+  box7_royalty_reporting:
+    tsj: T
+    # ... the values the engine needs ...
+    provenance:
+      source: "Box 7 royalty statement, page 3"   # required
+      retrieved_by: "preparer:Jane Doe"           # required: preparer:<name> or tool:<name>
+      retrieved_at: 2026-10-08                    # required
+      source_sha256: "<64 hex>"                   # required when retrieved_by is a tool
+```
+
+A tool that fetches missing proof can therefore feed the attestation gate, and the audit shows who or
+what retrieved each piece of evidence, from where, and when. The bridge does not fetch evidence itself,
+and it does not check that the source is genuine: the hash lets a reviewer confirm the file they open is
+the one the tool retrieved. Provenance is required for attestations only. Reviewer exclusions already
+carry a named reviewer and a reason.
 
 ## Run
 
